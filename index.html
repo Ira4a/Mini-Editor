@@ -1,706 +1,764 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Mini Illustrator Advanced</title>
-  <style>
-    body {
-      margin: 0; font-family: sans-serif; display: flex; height: 100vh; overflow: hidden;
-    }
-    #toolbar {
-      background: #222; color: white; padding: 10px;
-      display: flex; flex-wrap: wrap; gap: 5px; align-items: center;
-      user-select: none;
-      flex-shrink: 0;
-    }
-    #toolbar button, #toolbar input[type=color], #toolbar input[type=range] {
-      margin-right: 5px;
-      cursor: pointer;
-    }
-    #svgWrapper {
-      position: relative;
-      flex: 1;
-      background: #fff;
-      overflow: auto;
-    }
-    svg {
-      background: white;
-      border: 1px solid #ccc;
-      cursor: crosshair;
-      user-select: none;
-    }
-    .selected {
-      stroke: red !important;
-      stroke-width: 2 !important;
-    }
-    #layerPanel {
-      position: absolute;
-      top: 50px; right: 0;
-      background: #f9f9f9;
-      padding: 10px;
-      border-left: 1px solid #ccc;
-      width: 200px;
-      height: 90vh;
-      overflow-y: auto;
-      font-size: 14px;
-      box-shadow: -2px 0 5px rgba(0,0,0,0.1);
-      user-select: none;
-    }
-    .layerItem {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      border-bottom: 1px solid #ddd;
-      padding: 5px 0;
-    }
-    .layerItem input[type=text] {
-      border: none;
-      background: transparent;
-      width: 100px;
-      font-size: 14px;
-      outline: none;
-      cursor: text;
-    }
-    .layerItem input[type=checkbox] {
-      margin-right: 8px;
-      cursor: pointer;
-    }
-    #rulers {
-      position: absolute;
-      top: 0; left: 0;
-      pointer-events: none;
-      background: #ddd;
-      z-index: 10;
-      user-select: none;
-    }
-  </style>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Mini Illustrator</title>
+<style>
+  body, html {
+    margin: 0; padding: 0; height: 100%;
+    display: flex; flex-direction: column;
+    font-family: Arial, sans-serif;
+    user-select: none;
+  }
+  #toolbar {
+    background: #222;
+    color: white;
+    padding: 8px 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    font-size: 14px;
+  }
+  #toolbar button, #toolbar input[type="color"], #toolbar input[type="range"] {
+    cursor: pointer;
+    background: #444;
+    border: none;
+    color: white;
+    padding: 6px 10px;
+    border-radius: 3px;
+    transition: background-color 0.2s;
+  }
+  #toolbar button:hover, #toolbar input[type="color"]:hover, #toolbar input[type="range"]:hover {
+    background: #666;
+  }
+  #toolbar label {
+    user-select: none;
+  }
+  #canvas-container {
+    flex: 1;
+    position: relative;
+    background: #f0f0f0;
+    overflow: auto;
+  }
+  svg#svgCanvas {
+    background: white;
+    display: block;
+    margin: auto;
+    border: 1px solid #ccc;
+    cursor: crosshair;
+  }
+  #rulers {
+    position: absolute;
+    top: 0; left: 0;
+    pointer-events: none;
+  }
+  #layerPanel {
+    background: #ddd;
+    padding: 8px;
+    height: 150px;
+    overflow-y: auto;
+    border-top: 1px solid #bbb;
+    font-size: 14px;
+  }
+  #layerPanel h3 {
+    margin: 4px 0 8px 0;
+  }
+  .layer-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: white;
+    margin-bottom: 6px;
+    padding: 4px 6px;
+    border-radius: 3px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+  }
+  .layer-item input[type="checkbox"] {
+    margin-right: 8px;
+  }
+  .layer-item input[type="text"] {
+    border: none;
+    background: transparent;
+    width: 120px;
+    font-size: 14px;
+  }
+  .layer-item input[type="text"]:focus {
+    outline: 1px solid #888;
+    background: #fff;
+  }
+  .layer-item button {
+    background: #c33;
+    border: none;
+    color: white;
+    padding: 2px 6px;
+    border-radius: 3px;
+    cursor: pointer;
+  }
+  .layer-item button:hover {
+    background: #a00;
+  }
+</style>
 </head>
 <body>
 
-  <div id="toolbar">
-    <button onclick="setTool('select')">Select (V)</button>
-    <button onclick="setTool('bezier')">Bezier (B)</button>
-    <button onclick="setTool('rect')">Rect (R)</button>
-    <button onclick="setTool('circle')">Circle (C)</button>
-    <button onclick="zoomIn()">Zoom +</button>
-    <button onclick="zoomOut()">Zoom -</button>
-    <button onclick="groupSelected()">Group (Ctrl+G)</button>
-    <button onclick="exportPNG()">Export PNG (Ctrl+E)</button>
-    <button onclick="exportSVG()">Export SVG</button>
-    <button onclick="importSVG()">Import SVG</button>
-    <input type="file" id="svgFileInput" style="display:none" accept="image/svg+xml" />
-    <input type="color" id="strokeColor" title="Stroke Color" value="#000000" />
-    <input type="range" id="strokeWidth" min="1" max="10" value="2" title="Stroke Width" />
-  </div>
+<div id="toolbar">
+  <button data-tool="select" title="Выделение (S)">Select (S)</button>
+  <button data-tool="bezier" title="Кривая Безье (B)">Bezier (B)</button>
+  <button data-tool="rect" title="Прямоугольник (R)">Rect (R)</button>
+  <button data-tool="circle" title="Круг (C)">Circle (C)</button>
+  <button data-tool="delete" title="Удалить выделенное (Delete)">Delete</button>
+  <button id="undoBtn" title="Отменить (Ctrl+Z)">Undo</button>
+  <button id="redoBtn" title="Повторить (Ctrl+Y)">Redo</button>
+  <button id="groupBtn" title="Группировать (Ctrl+G)">Group</button>
+  <button id="exportSVGBtn" title="Экспорт SVG">Export SVG</button>
+  <button id="importSVGBtn" title="Импорт SVG">Import SVG</button>
+  <button id="exportPNGBtn" title="Экспорт PNG">Export PNG</button>
+  
+  <label for="strokeColor">Stroke: </label>
+  <input type="color" id="strokeColor" value="#000000" title="Цвет обводки" />
+  
+  <label for="strokeWidth">Width: </label>
+  <input type="range" id="strokeWidth" min="1" max="10" value="2" title="Толщина линии" />
+  
+  <label><input type="checkbox" id="showGrid" checked /> Grid</label>
+  <label><input type="checkbox" id="showRulers" checked /> Rulers</label>
+</div>
 
-  <div id="svgWrapper">
-    <canvas id="rulers" width="40" height="40"></canvas>
-    <svg id="svgCanvas" width="2000" height="2000" tabindex="0" style="outline:none;">
-      <g id="grid"></g>
-      <g id="svgGroup"></g>
-    </svg>
-  </div>
+<div id="canvas-container">
+  <svg id="svgCanvas" width="1000" height="700" tabindex="0"></svg>
+  <canvas id="rulers" width="1000" height="700"></canvas>
+</div>
 
-  <div id="layerPanel"><strong>Layers</strong><hr/></div>
+<div id="layerPanel">
+  <h3>Layers</h3>
+  <div id="layersList"></div>
+</div>
 
-  <canvas id="canvasExport" style="display:none"></canvas>
+<input type="file" id="importFile" accept=".svg" style="display:none"/>
 
-  <script>
-    // === Globals ===
-    const svgCanvas = document.getElementById("svgCanvas");
-    const svg = document.getElementById("svgGroup");
-    const gridGroup = document.getElementById("grid");
-    const layerPanel = document.getElementById("layerPanel");
-    const rulersCanvas = document.getElementById("rulers");
-    const rulersCtx = rulersCanvas.getContext("2d");
-    const strokeColorInput = document.getElementById("strokeColor");
-    const strokeWidthInput = document.getElementById("strokeWidth");
+<script>
+(() => {
+  const svgNS = "http://www.w3.org/2000/svg";
+  const svgCanvas = document.getElementById("svgCanvas");
+  const rulersCanvas = document.getElementById("rulers");
+  const rulersCtx = rulersCanvas.getContext("2d");
+  const layersList = document.getElementById("layersList");
+  const strokeColorInput = document.getElementById("strokeColor");
+  const strokeWidthInput = document.getElementById("strokeWidth");
+  const showGridCheckbox = document.getElementById("showGrid");
+  const showRulersCheckbox = document.getElementById("showRulers");
+  const importFileInput = document.getElementById("importFile");
+  
+  // Настройки и состояние
+  let tool = "select";
+  let isDrawing = false;
+  let startPoint = null;
+  let currentElement = null;
+  let selectedElements = new Set();
+  let dragOffset = null;
+  let dragTarget = null;
+  let dragType = null; // 'element' or 'handle'
+  let handles = [];
+  let history = [];
+  let historyPos = -1;
+  
+  // Слои храним в массиве объектов {id, element, visible, name}
+  let layers = [];
 
-    let tool = "select";
-    let multiSelect = [];
-    let scale = 1;
-    let translateX = 0;
-    let translateY = 0;
-    let isPanning = false;
-    let panStart = null;
+  // Инициализация
+  
+  svgCanvas.setAttribute("tabindex", "0"); // чтобы можно было ловить клавиши
 
-    let undoStack = [];
-    let redoStack = [];
+  // === UI ===
+  function setTool(t) {
+    tool = t;
+    clearSelection();
+    updateCursor();
+  }
 
-    // === Initialization ===
+  function updateCursor() {
+    if (tool === "select") svgCanvas.style.cursor = "default";
+    else svgCanvas.style.cursor = "crosshair";
+  }
 
-    drawGrid();
-    drawRulers();
-    loadFromStorage();
-    updateLayerPanel();
-
-    // === Tools & Events ===
-
-    svgCanvas.addEventListener("mousedown", onMouseDown);
-    svgCanvas.addEventListener("mousemove", onMouseMove);
-    svgCanvas.addEventListener("mouseup", onMouseUp);
-    svgCanvas.addEventListener("mouseleave", onMouseUp);
-    svgCanvas.addEventListener("wheel", onWheel, { passive: false });
-    svgCanvas.addEventListener("keydown", onKeyDown);
-
-    // Helpers to keep track of drag for controls & panning
-    let dragTarget = null;
-    let dragType = null; // "control", "move", "pan"
-    let dragOffset = {x:0, y:0};
-    let dragBezierPoints = null;
-    let dragSelectedElements = [];
-
-    // === Grid & Rulers ===
-
-    function drawGrid() {
-      gridGroup.innerHTML = "";
-      const gridSize = 20;
-      for(let x=0; x<=2000; x+=gridSize){
-        const lineV = document.createElementNS("http://www.w3.org/2000/svg","line");
-        lineV.setAttribute("x1", x);
-        lineV.setAttribute("y1", 0);
-        lineV.setAttribute("x2", x);
-        lineV.setAttribute("y2", 2000);
-        lineV.setAttribute("stroke", "#eee");
-        lineV.setAttribute("stroke-width", 0.5);
-        gridGroup.appendChild(lineV);
-      }
-      for(let y=0; y<=2000; y+=gridSize){
-        const lineH = document.createElementNS("http://www.w3.org/2000/svg","line");
-        lineH.setAttribute("x1", 0);
-        lineH.setAttribute("y1", y);
-        lineH.setAttribute("x2", 2000);
-        lineH.setAttribute("y2", y);
-        lineH.setAttribute("stroke", "#eee");
-        lineH.setAttribute("stroke-width", 0.5);
-        gridGroup.appendChild(lineH);
-      }
+  // Создание нового слоя (элемента)
+  function createLayerElement(type, attrs = {}) {
+    let el;
+    if (type === "bezier") {
+      // создаём path с началом, управляющей и концом
+      el = document.createElementNS(svgNS, "path");
+      el.setAttribute("d", "M 0 0 Q 50 50 100 0");
+      el.setAttribute("fill", "none");
+      el.setAttribute("stroke", strokeColorInput.value);
+      el.setAttribute("stroke-width", strokeWidthInput.value);
+    } else if (type === "rect") {
+      el = document.createElementNS(svgNS, "rect");
+      el.setAttribute("x", 0);
+      el.setAttribute("y", 0);
+      el.setAttribute("width", 100);
+      el.setAttribute("height", 50);
+      el.setAttribute("fill", "none");
+      el.setAttribute("stroke", strokeColorInput.value);
+      el.setAttribute("stroke-width", strokeWidthInput.value);
+    } else if (type === "circle") {
+      el = document.createElementNS(svgNS, "circle");
+      el.setAttribute("cx", 50);
+      el.setAttribute("cy", 50);
+      el.setAttribute("r", 40);
+      el.setAttribute("fill", "none");
+      el.setAttribute("stroke", strokeColorInput.value);
+      el.setAttribute("stroke-width", strokeWidthInput.value);
     }
-
-    function drawRulers(){
-      const size = 40;
-      rulersCanvas.width = size;
-      rulersCanvas.height = size;
-
-      rulersCtx.clearRect(0,0,size,size);
-      rulersCtx.fillStyle = "#ddd";
-      rulersCtx.fillRect(0,0,size,size);
-
-      rulersCtx.strokeStyle = "#999";
-      rulersCtx.lineWidth = 1;
-      rulersCtx.font = "10px sans-serif";
-      rulersCtx.fillStyle = "#333";
-
-      for(let i=0; i<=2000; i+=20){
-        let pos = i * scale + (i === 0 ? 0 : translateX * scale);
-        if(pos > size && pos < rulersCanvas.parentElement.clientWidth){
-          rulersCtx.beginPath();
-          rulersCtx.moveTo(pos, size);
-          rulersCtx.lineTo(pos, size-5);
-          rulersCtx.stroke();
-          rulersCtx.fillText(i, pos + 2, size - 7);
-        }
-      }
-      for(let i=0; i<=2000; i+=20){
-        let pos = i * scale + (i === 0 ? 0 : translateY * scale);
-        if(pos > size && pos < rulersCanvas.parentElement.clientHeight){
-          rulersCtx.beginPath();
-          rulersCtx.moveTo(size, pos);
-          rulersCtx.lineTo(size-5, pos);
-          rulersCtx.stroke();
-          rulersCtx.fillText(i, 2, pos - 2);
-        }
-      }
+    for (const k in attrs) {
+      el.setAttribute(k, attrs[k]);
     }
+    return el;
+  }
 
-    // === Tool Switching ===
+  // Добавить слой
+  function addLayer(el, name = "") {
+    const id = `layer_${Date.now()}_${Math.floor(Math.random()*1000)}`;
+    layers.push({
+      id, element: el, visible: true, name: name || id
+    });
+    svgCanvas.appendChild(el);
+    addHistory();
+    renderLayersPanel();
+  }
 
-    function setTool(t) {
-      tool = t;
-      clearSelection();
-    }
+  // Рендер панели слоёв
+  function renderLayersPanel() {
+    layersList.innerHTML = "";
+    layers.slice().reverse().forEach(({id, element, visible, name}, i) => {
+      const div = document.createElement("div");
+      div.className = "layer-item";
 
-    // === Mouse Handling ===
-
-    function getSVGPoint(clientX, clientY) {
-      const pt = svgCanvas.createSVGPoint();
-      pt.x = clientX; pt.y = clientY;
-      const svgP = pt.matrixTransform(svgCanvas.getScreenCTM().inverse());
-      return {x: svgP.x, y: svgP.y};
-    }
-
-    function snapToGrid(coord) {
-      return Math.round(coord / 20) * 20;
-    }
-
-    function onMouseDown(e){
-      svgCanvas.focus();
-      const mouse = getSVGPoint(e.clientX, e.clientY);
-      const x = snapToGrid(mouse.x);
-      const y = snapToGrid(mouse.y);
-
-      if(e.button === 1 || (e.button === 0 && tool === "select" && e.target === svgCanvas)) {
-        // Middle mouse or click on empty svg with select tool: pan
-        isPanning = true;
-        panStart = {x: e.clientX, y: e.clientY};
-        dragType = "pan";
-        return;
-      }
-
-      if(tool === "bezier"){
-        addBezierCurve(x,y);
-        pushUndo();
-        updateLayerPanel();
-        return;
-      }
-
-      if(tool === "rect"){
-        addRect(x,y);
-        pushUndo();
-        updateLayerPanel();
-        return;
-      }
-
-      if(tool === "circle"){
-        addCircle(x,y);
-        pushUndo();
-        updateLayerPanel();
-        return;
-      }
-
-      if(tool === "select"){
-        if(e.target.closest(".draggable-point")){
-          dragTarget = e.target.closest(".draggable-point");
-          dragType = "control";
-          return;
-        }
-        if(e.target.closest(".svg-shape")){
-          const elem = e.target.closest(".svg-shape");
-          if(!e.ctrlKey && !multiSelect.includes(elem)){
-            clearSelection();
-          }
-          selectElement(elem);
-          dragType = "move";
-          dragSelectedElements = [...multiSelect];
-          dragOffset = dragSelectedElements.map(el => {
-            const bbox = el.getBBox();
-            return {x: mouse.x - bbox.x, y: mouse.y - bbox.y};
-          });
-          return;
-        }
-        clearSelection();
-      }
-    }
-
-    function onMouseMove(e){
-      if(dragType === "pan" && isPanning){
-        let dx = e.clientX - panStart.x;
-        let dy = e.clientY - panStart.y;
-        panStart = {x: e.clientX, y: e.clientY};
-        translateX += dx/scale;
-        translateY += dy/scale;
-        applyTransform();
-        drawRulers();
-      }
-      if(dragType === "control" && dragTarget){
-        const mouse = getSVGPoint(e.clientX, e.clientY);
-        let newX = snapToGrid(mouse.x);
-        let newY = snapToGrid(mouse.y);
-        // Update control point position & parent bezier path data
-        const parentPath = dragTarget.closest("path");
-        if(!parentPath) return;
-        const d = parentPath.getAttribute("d");
-        // d format: M x,y C c1x,c1y c2x,c2y ex,ey
-        let coords = d.match(/-?[\d\.]+/g).map(Number);
-        // Identify which control point this is
-        // Control points are draggable with data-index: 0=first control, 1=second control, 2=end point
-        let idx = parseInt(dragTarget.getAttribute("data-index"));
-        if(idx === 0){
-          coords[2] = newX;
-          coords[3] = newY;
-        } else if(idx === 1){
-          coords[4] = newX;
-          coords[5] = newY;
-        } else if(idx === 2){
-          coords[6] = newX;
-          coords[7] = newY;
-        }
-        parentPath.setAttribute("d", `M${coords[0]},${coords[1]} C${coords[2]},${coords[3]} ${coords[4]},${coords[5]} ${coords[6]},${coords[7]}`);
-        updateBezierControls(parentPath);
-      }
-      if(dragType === "move" && dragSelectedElements.length > 0){
-        const mouse = getSVGPoint(e.clientX, e.clientY);
-        dragSelectedElements.forEach((el,i)=>{
-          const dx = mouse.x - dragOffset[i].x;
-          const dy = mouse.y - dragOffset[i].y;
-          moveElement(el, dx, dy);
-        });
-        updateLayerPanel();
-      }
-    }
-
-    function onMouseUp(e){
-      if(dragType === "control" || dragType === "move") {
-        pushUndo();
-      }
-      dragTarget = null;
-      dragType = null;
-      dragSelectedElements = [];
-      isPanning = false;
-      panStart = null;
-    }
-
-    // === Keyboard Handling ===
-
-    function onKeyDown(e){
-      if(e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
-
-      if(e.key === "Delete" || e.key === "Backspace"){
-        if(multiSelect.length){
-          multiSelect.forEach(el => el.remove());
-          clearSelection();
-          pushUndo();
-          updateLayerPanel();
-        }
-      }
-      if(e.ctrlKey && e.key.toLowerCase() === "z"){
-        e.preventDefault();
-        undo();
-      }
-      if(e.ctrlKey && e.key.toLowerCase() === "y"){
-        e.preventDefault();
-        redo();
-      }
-      if(e.ctrlKey && e.key.toLowerCase() === "g"){
-        e.preventDefault();
-        groupSelected();
-      }
-      if(e.ctrlKey && e.key.toLowerCase() === "e"){
-        e.preventDefault();
-        exportPNG();
-      }
-      // Tool shortcuts
-      if(!e.ctrlKey && !e.metaKey){
-        if(e.key.toLowerCase() === "v") setTool("select");
-        if(e.key.toLowerCase() === "b") setTool("bezier");
-        if(e.key.toLowerCase() === "r") setTool("rect");
-        if(e.key.toLowerCase() === "c") setTool("circle");
-      }
-    }
-
-    // === Drawing functions ===
-
-    function addBezierCurve(x,y){
-      // Create a simple cubic bezier with start and end same point, control points offset
-      const p0 = {x,y};
-      const p1 = {x: x+40, y: y-40};
-      const p2 = {x: x+80, y: y+40};
-      const p3 = {x: x+120, y: y};
-      const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-      path.setAttribute("d", `M${p0.x},${p0.y} C${p1.x},${p1.y} ${p2.x},${p2.y} ${p3.x},${p3.y}`);
-      path.setAttribute("stroke", strokeColorInput.value);
-      path.setAttribute("stroke-width", strokeWidthInput.value);
-      path.setAttribute("fill", "none");
-      path.classList.add("svg-shape");
-      svg.appendChild(path);
-      addBezierControls(path);
-      clearSelection();
-      selectElement(path);
-    }
-
-    function addRect(x,y){
-      const rect = document.createElementNS("http://www.w3.org/2000/svg","rect");
-      rect.setAttribute("x", x);
-      rect.setAttribute("y", y);
-      rect.setAttribute("width", 100);
-      rect.setAttribute("height", 60);
-      rect.setAttribute("stroke", strokeColorInput.value);
-      rect.setAttribute("stroke-width", strokeWidthInput.value);
-      rect.setAttribute("fill", "transparent");
-      rect.classList.add("svg-shape");
-      svg.appendChild(rect);
-      clearSelection();
-      selectElement(rect);
-    }
-
-    function addCircle(x,y){
-      const circle = document.createElementNS("http://www.w3.org/2000/svg","circle");
-      circle.setAttribute("cx", x+50);
-      circle.setAttribute("cy", y+50);
-      circle.setAttribute("r", 50);
-      circle.setAttribute("stroke", strokeColorInput.value);
-      circle.setAttribute("stroke-width", strokeWidthInput.value);
-      circle.setAttribute("fill", "transparent");
-      circle.classList.add("svg-shape");
-      svg.appendChild(circle);
-      clearSelection();
-      selectElement(circle);
-    }
-
-    // === Bezier Controls ===
-
-    function addBezierControls(path){
-      // Remove previous controls for this path
-      const oldControls = svg.querySelectorAll(`.control-for-${path._controlId}`);
-      oldControls.forEach(c => c.remove());
-
-      if(!path._controlId){
-        path._controlId = Math.random().toString(36).substr(2, 9);
-      }
-
-      // Parse d attribute to get points
-      const d = path.getAttribute("d");
-      const coords = d.match(/-?[\d\.]+/g).map(Number);
-      const points = [
-        {x: coords[0], y: coords[1]},    // M start point
-        {x: coords[2], y: coords[3]},    // C control point 1
-        {x: coords[4], y: coords[5]},    // C control point 2
-        {x: coords[6], y: coords[7]}     // C end point
-      ];
-
-      // Control points for bezier (excluding start point)
-      const controlIndices = [1,2,3];
-
-      controlIndices.forEach((ci,i)=>{
-        const circle = document.createElementNS("http://www.w3.org/2000/svg","circle");
-        circle.setAttribute("cx", points[ci].x);
-        circle.setAttribute("cy", points[ci].y);
-        circle.setAttribute("r", 6);
-        circle.setAttribute("fill", "white");
-        circle.setAttribute("stroke", "black");
-        circle.setAttribute("stroke-width", 1);
-        circle.classList.add("draggable-point");
-        circle.classList.add(`control-for-${path._controlId}`);
-        circle.setAttribute("data-index", i);
-        svg.appendChild(circle);
-      });
-    }
-
-    function updateBezierControls(path){
-      if(!path._controlId) return;
-      const controls = svg.querySelectorAll(`.control-for-${path._controlId}`);
-      const d = path.getAttribute("d");
-      const coords = d.match(/-?[\d\.]+/g).map(Number);
-      const points = [
-        {x: coords[0], y: coords[1]},
-        {x: coords[2], y: coords[3]},
-        {x: coords[4], y: coords[5]},
-        {x: coords[6], y: coords[7]}
-      ];
-      controls.forEach((c,i)=>{
-        const idx = parseInt(c.getAttribute("data-index"));
-        c.setAttribute("cx", points[idx+1].x);
-        c.setAttribute("cy", points[idx+1].y);
-      });
-    }
-
-    // === Selection ===
-
-    function clearSelection(){
-      multiSelect.forEach(el=>el.classList.remove("selected"));
-      multiSelect = [];
-    }
-
-    function selectElement(elem){
-      if(!multiSelect.includes(elem)){
-        multiSelect.push(elem);
-        elem.classList.add("selected");
-      }
-    }
-
-    // === Moving Elements ===
-
-    function moveElement(el, x, y){
-      if(el.tagName === "path"){
-        // Move all points by delta
-        const d = el.getAttribute("d");
-        const coords = d.match(/-?[\d\.]+/g).map(Number);
-        const deltaX = x - coords[0];
-        const deltaY = y - coords[1];
-        const newCoords = [];
-        for(let i=0; i<coords.length; i+=2){
-          newCoords.push(coords[i] + deltaX);
-          newCoords.push(coords[i+1] + deltaY);
-        }
-        el.setAttribute("d", `M${newCoords[0]},${newCoords[1]} C${newCoords[2]},${newCoords[3]} ${newCoords[4]},${newCoords[5]} ${newCoords[6]},${newCoords[7]}`);
-        updateBezierControls(el);
-      } else if(el.tagName === "rect"){
-        el.setAttribute("x", x);
-        el.setAttribute("y", y);
-      } else if(el.tagName === "circle"){
-        el.setAttribute("cx", x + parseFloat(el.getAttribute("r")));
-        el.setAttribute("cy", y + parseFloat(el.getAttribute("r")));
-      } else if(el.tagName === "g"){
-        // Move group: move all children
-        [...el.children].forEach(child => {
-          moveElement(child, x, y);
-        });
-      }
-    }
-
-    // === Grouping ===
-
-    function groupSelected(){
-      if(multiSelect.length < 2) return alert("Select at least two objects");
-      const group = document.createElementNS("http://www.w3.org/2000/svg","g");
-      group.classList.add("svg-shape");
-      svg.appendChild(group);
-      multiSelect.forEach(el => {
-        group.appendChild(el);
-        el.classList.remove("selected");
-      });
-      clearSelection();
-      selectElement(group);
-      pushUndo();
-      updateLayerPanel();
-    }
-
-    // === Undo/Redo System ===
-
-    function pushUndo(){
-      const state = svg.innerHTML;
-      undoStack.push(state);
-      if(undoStack.length > 50) undoStack.shift();
-      redoStack = [];
-      saveToStorage();
-    }
-
-    function undo(){
-      if(undoStack.length <= 1) return;
-      const state = undoStack.pop();
-      redoStack.push(state);
-      const lastState = undoStack[undoStack.length - 1];
-      svg.innerHTML = lastState;
-      clearSelection();
-      restoreControls();
-      updateLayerPanel();
-      saveToStorage();
-    }
-
-    function redo(){
-      if(redoStack.length === 0) return;
-      const state = redoStack.pop();
-      undoStack.push(state);
-      svg.innerHTML = state;
-      clearSelection();
-      restoreControls();
-      updateLayerPanel();
-      saveToStorage();
-    }
-
-    function restoreControls(){
-      // Recreate drag points for bezier paths
-      const paths = svg.querySelectorAll("path");
-      paths.forEach(p => addBezierControls(p));
-    }
-
-    // === Export to PNG ===
-
-    function exportPNG(){
-      const canvas = document.getElementById("canvasExport");
-      const bbox = svgCanvas.getBBox();
-      canvas.width = bbox.width * scale;
-      canvas.height = bbox.height * scale;
-      const ctx = canvas.getContext("2d");
-
-      const data = new XMLSerializer().serializeToString(svgCanvas);
-      const img = new Image();
-      const svgBlob = new Blob([data], {type: "image/svg+xml;charset=utf-8"});
-      const url = URL.createObjectURL(svgBlob);
-      img.onload = () => {
-        ctx.clearRect(0,0,canvas.width,canvas.height);
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        URL.revokeObjectURL(url);
-        const pngData = canvas.toDataURL("image/png");
-        const a = document.createElement("a");
-        a.href = pngData;
-        a.download = "drawing.png";
-        a.click();
+      // Видимость
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.checked = visible;
+      checkbox.title = "Показать/скрыть слой";
+      checkbox.onchange = () => {
+        const layer = layers.find(l => l.id === id);
+        layer.visible = checkbox.checked;
+        layer.element.style.display = layer.visible ? "" : "none";
+        addHistory();
       };
-      img.src = url;
+      div.appendChild(checkbox);
+
+      // Имя
+      const inputName = document.createElement("input");
+      inputName.type = "text";
+      inputName.value = name;
+      inputName.title = "Переименовать слой";
+      inputName.onchange = () => {
+        const layer = layers.find(l => l.id === id);
+        layer.name = inputName.value;
+        addHistory();
+      };
+      div.appendChild(inputName);
+
+      // Кнопка удаления слоя
+      const delBtn = document.createElement("button");
+      delBtn.textContent = "X";
+      delBtn.title = "Удалить слой";
+      delBtn.onclick = () => {
+        deleteLayer(id);
+      };
+      div.appendChild(delBtn);
+
+      // Выделение слоя по клику на панели
+      div.onclick = (ev) => {
+        if(ev.target === delBtn || ev.target === checkbox || ev.target === inputName) return;
+        clearSelection();
+        selectElement(layers.find(l => l.id === id).element);
+      };
+
+      layersList.appendChild(div);
+    });
+  }
+
+  function deleteLayer(id) {
+    const index = layers.findIndex(l => l.id === id);
+    if (index >= 0) {
+      svgCanvas.removeChild(layers[index].element);
+      layers.splice(index, 1);
+      clearSelection();
+      addHistory();
+      renderLayersPanel();
     }
+  }
 
-    // === Export/Import SVG ===
-
-    function exportSVG(){
-      const svgData = '<?xml version="1.0" encoding="UTF-8"?>\n' +
-        '<svg xmlns="http://www.w3.org/2000/svg" width="2000" height="2000">\n' +
-        svg.innerHTML +
-        '\n</svg>';
-      const blob = new Blob([svgData], {type: "image/svg+xml"});
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "drawing.svg";
-      a.click();
-      URL.revokeObjectURL(url);
+  // Выделение элементов
+  function selectElement(el, add = false) {
+    if (!add) clearSelection();
+    if (!selectedElements.has(el)) {
+      selectedElements.add(el);
+      el.classList.add("selected");
+      el.setAttribute("stroke", "#f00");
     }
+  }
+  function clearSelection() {
+    selectedElements.forEach(el => {
+      el.classList.remove("selected");
+      const layer = layers.find(l => l.element === el);
+      if (layer) {
+        el.setAttribute("stroke", strokeColorInput.value);
+      }
+    });
+    selectedElements.clear();
+  }
 
-    function importSVG(svgString){
-      svg.innerHTML = "";
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(svgString, "image/svg+xml");
-      const importedSVG = doc.querySelector("svg");
-      if(importedSVG){
-        [...importedSVG.children].forEach(child => svg.appendChild(child));
-        restoreControls();
-        updateLayerPanel();
-        pushUndo();
+  // Обновить цвет и толщину у выбранных
+  function updateSelectedStroke() {
+    selectedElements.forEach(el => {
+      el.setAttribute("stroke", strokeColorInput.value);
+      el.setAttribute("stroke-width", strokeWidthInput.value);
+    });
+  }
+
+  // === История действий ===
+  function addHistory() {
+    // Уберём всё после текущей позиции
+    history = history.slice(0, historyPos + 1);
+    // Сохраняем состояние SVG (сериализуем)
+    const state = svgCanvas.innerHTML;
+    history.push(state);
+    historyPos++;
+    updateUndoRedoButtons();
+    saveToLocal();
+  }
+  function undo() {
+    if (historyPos <= 0) return;
+    historyPos--;
+    loadHistoryState(history[historyPos]);
+  }
+  function redo() {
+    if (historyPos >= history.length - 1) return;
+    historyPos++;
+    loadHistoryState(history[historyPos]);
+  }
+  function loadHistoryState(state) {
+    svgCanvas.innerHTML = state;
+    rebindElements();
+    renderLayersFromSVG();
+    updateUndoRedoButtons();
+  }
+  function updateUndoRedoButtons() {
+    document.getElementById("undoBtn").disabled = historyPos <= 0;
+    document.getElementById("redoBtn").disabled = historyPos >= history.length - 1;
+  }
+
+  // При загрузке нужно заново связать элементы с слоями и добавить слушатели
+  function rebindElements() {
+    // Здесь можно восстановить выделение, слои и слушателей (если нужно)
+  }
+
+  // Считать слои из SVG
+  function renderLayersFromSVG() {
+    // Очистим
+    layers = [];
+    const children = Array.from(svgCanvas.children);
+    children.forEach(el => {
+      const id = el.getAttribute("data-layer-id") || `layer_${Date.now()}_${Math.floor(Math.random()*1000)}`;
+      el.setAttribute("data-layer-id", id);
+      layers.push({
+        id,
+        element: el,
+        visible: el.style.display !== "none",
+        name: id
+      });
+    });
+    renderLayersPanel();
+  }
+
+  // === События ===
+  svgCanvas.addEventListener("mousedown", e => {
+    if (e.target === svgCanvas) {
+      if (tool === "bezier") {
+        isDrawing = true;
+        startPoint = getSvgPoint(e);
+        currentElement = createLayerElement("bezier");
+        currentElement.setAttribute("d", `M ${startPoint.x} ${startPoint.y} Q ${startPoint.x+50} ${startPoint.y+50} ${startPoint.x+100} ${startPoint.y}`);
+        addLayer(currentElement, "Bezier Curve");
+      } else if (tool === "rect") {
+        isDrawing = true;
+        startPoint = getSvgPoint(e);
+        currentElement = createLayerElement("rect");
+        currentElement.setAttribute("x", startPoint.x);
+        currentElement.setAttribute("y", startPoint.y);
+        currentElement.setAttribute("width", 0);
+        currentElement.setAttribute("height", 0);
+        addLayer(currentElement, "Rectangle");
+      } else if (tool === "circle") {
+        isDrawing = true;
+        startPoint = getSvgPoint(e);
+        currentElement = createLayerElement("circle");
+        currentElement.setAttribute("cx", startPoint.x);
+        currentElement.setAttribute("cy", startPoint.y);
+        currentElement.setAttribute("r", 0);
+        addLayer(currentElement, "Circle");
+      } else if (tool === "select") {
+        // Выделение элемента при клике
+        if (e.target !== svgCanvas) {
+          if (selectedElements.has(e.target)) {
+            // Уже выделено, можно перетаскивать
+            dragTarget = e.target;
+            dragOffset = getSvgPoint(e);
+            dragType = "element";
+          } else {
+            if (!e.ctrlKey) clearSelection();
+            selectElement(e.target, e.ctrlKey);
+          }
+        } else {
+          clearSelection();
+        }
+      }
+    }
+  });
+
+  svgCanvas.addEventListener("mousemove", e => {
+    if (!isDrawing && !dragTarget) return;
+    const pt = getSvgPoint(e);
+    if (isDrawing && currentElement) {
+      if (tool === "bezier") {
+        // Обновим Q
+        // Для простоты — M start, Q mouse.x mouse.y, endPoint (fixed offset)
+        const d = currentElement.getAttribute("d");
+        // Формат: M x y Q cx cy x2 y2
+        const [M, mx, my, Q, cx, cy, x2, y2] = d.split(" ");
+        const newD = `M ${startPoint.x} ${startPoint.y} Q ${pt.x} ${pt.y} ${startPoint.x + 100} ${startPoint.y}`;
+        currentElement.setAttribute("d", newD);
+      } else if (tool === "rect") {
+        let w = pt.x - startPoint.x;
+        let h = pt.y - startPoint.y;
+        if (w < 0) {
+          currentElement.setAttribute("x", pt.x);
+          w = Math.abs(w);
+        }
+        if (h < 0) {
+          currentElement.setAttribute("y", pt.y);
+          h = Math.abs(h);
+        }
+        currentElement.setAttribute("width", w);
+        currentElement.setAttribute("height", h);
+      } else if (tool === "circle") {
+        const dx = pt.x - startPoint.x;
+        const dy = pt.y - startPoint.y;
+        const r = Math.sqrt(dx * dx + dy * dy);
+        currentElement.setAttribute("r", r);
+      }
+    } else if (dragTarget && dragType === "element") {
+      // Перемещение выделенного элемента
+      const newPt = getSvgPoint(e);
+      const dx = newPt.x - dragOffset.x;
+      const dy = newPt.y - dragOffset.y;
+      dragOffset = newPt;
+      moveElement(dragTarget, dx, dy);
+    }
+  });
+
+  svgCanvas.addEventListener("mouseup", e => {
+    if (isDrawing) {
+      isDrawing = false;
+      currentElement = null;
+      addHistory();
+    }
+    if (dragTarget) {
+      dragTarget = null;
+      addHistory();
+    }
+  });
+
+  svgCanvas.addEventListener("mouseleave", e => {
+    if (isDrawing || dragTarget) {
+      isDrawing = false;
+      dragTarget = null;
+      addHistory();
+    }
+  });
+
+  // Клавиши управления
+  window.addEventListener("keydown", e => {
+    if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
+
+    if (e.key === "Delete") {
+      deleteSelected();
+    } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
+      undo();
+      e.preventDefault();
+    } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "y") {
+      redo();
+      e.preventDefault();
+    } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "g") {
+      groupSelected();
+      e.preventDefault();
+    } else if (["s", "b", "r", "c"].includes(e.key.toLowerCase())) {
+      switch(e.key.toLowerCase()) {
+        case "s": setTool("select"); break;
+        case "b": setTool("bezier"); break;
+        case "r": setTool("rect"); break;
+        case "c": setTool("circle"); break;
+      }
+    }
+  });
+
+  // Удаление выделенных
+  function deleteSelected() {
+    selectedElements.forEach(el => {
+      const index = layers.findIndex(l => l.element === el);
+      if (index !== -1) {
+        svgCanvas.removeChild(el);
+        layers.splice(index, 1);
+      }
+    });
+    clearSelection();
+    addHistory();
+    renderLayersPanel();
+  }
+
+  // Группировка (объединяем выделенные в <g>)
+  function groupSelected() {
+    if (selectedElements.size < 2) return alert("Выделите минимум 2 объекта для группировки");
+    const g = document.createElementNS(svgNS, "g");
+    g.setAttribute("data-layer-id", `group_${Date.now()}`);
+    svgCanvas.appendChild(g);
+    selectedElements.forEach(el => {
+      g.appendChild(el);
+      // Удалим из слоёв старых и добавим новую группу
+      const idx = layers.findIndex(l => l.element === el);
+      if (idx !== -1) layers.splice(idx, 1);
+    });
+    layers.push({id: g.getAttribute("data-layer-id"), element: g, visible: true, name: "Group"});
+    clearSelection();
+    selectElement(g);
+    addHistory();
+    renderLayersPanel();
+  }
+
+  // Передвинуть элемент на dx, dy
+  function moveElement(el, dx, dy) {
+    if (el.tagName === "rect") {
+      const x = parseFloat(el.getAttribute("x") || 0) + dx;
+      const y = parseFloat(el.getAttribute("y") || 0) + dy;
+      el.setAttribute("x", x);
+      el.setAttribute("y", y);
+    } else if (el.tagName === "circle") {
+      const cx = parseFloat(el.getAttribute("cx") || 0) + dx;
+      const cy = parseFloat(el.getAttribute("cy") || 0) + dy;
+      el.setAttribute("cx", cx);
+      el.setAttribute("cy", cy);
+    } else if (el.tagName === "path") {
+      // Смещение path - разберём d и сместим все точки
+      const d = el.getAttribute("d");
+      const newD = d.replace(/([MLCQZ])\s*([\d\.-]+)\s*([\d\.-]+)/gi, (match, cmd, x, y) => {
+        return `${cmd} ${parseFloat(x) + dx} ${parseFloat(y) + dy}`;
+      });
+      el.setAttribute("d", newD);
+    } else if (el.tagName === "g") {
+      // Для групп смещаем всех детей
+      Array.from(el.children).forEach(child => moveElement(child, dx, dy));
+    }
+  }
+
+  // Получить координаты SVG из события мыши
+  function getSvgPoint(event) {
+    const pt = svgCanvas.createSVGPoint();
+    pt.x = event.clientX;
+    pt.y = event.clientY;
+    const svgP = pt.matrixTransform(svgCanvas.getScreenCTM().inverse());
+    return { x: svgP.x, y: svgP.y };
+  }
+
+  // Обновление цвета и толщины линии
+  strokeColorInput.addEventListener("input", () => {
+    updateSelectedStroke();
+  });
+  strokeWidthInput.addEventListener("input", () => {
+    updateSelectedStroke();
+  });
+
+  // Инструменты кнопками
+  document.querySelectorAll("#toolbar button[data-tool]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      setTool(btn.getAttribute("data-tool"));
+    });
+  });
+
+  // Undo/Redo кнопки
+  document.getElementById("undoBtn").addEventListener("click", undo);
+  document.getElementById("redoBtn").addEventListener("click", redo);
+
+  // Delete кнопка
+  document.querySelector("button[data-tool='delete']").addEventListener("click", deleteSelected);
+
+  // Group
+  document.getElementById("groupBtn").addEventListener("click", groupSelected);
+
+  // Экспорт SVG
+  document.getElementById("exportSVGBtn").addEventListener("click", () => {
+    const svgData = svgCanvas.outerHTML;
+    const blob = new Blob([svgData], {type:"image/svg+xml;charset=utf-8"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "drawing.svg";
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+
+  // Импорт SVG
+  document.getElementById("importSVGBtn").addEventListener("click", () => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".svg";
+    input.onchange = () => {
+      const file = input.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        svgCanvas.innerHTML = e.target.result;
+        renderLayersFromSVG();
+        addHistory();
+      };
+      reader.readAsText(file);
+    };
+    input.click();
+  });
+
+  // Линейки
+  function createRulers() {
+    const rulerSize = 20;
+    const width = svgContainer.clientWidth;
+    const height = svgContainer.clientHeight;
+
+    const rulerX = document.createElement("canvas");
+    rulerX.width = width;
+    rulerX.height = rulerSize;
+    rulerX.style.position = "absolute";
+    rulerX.style.top = "0";
+    rulerX.style.left = "0";
+    rulerX.style.background = "#eee";
+    svgContainer.appendChild(rulerX);
+
+    const rulerY = document.createElement("canvas");
+    rulerY.width = rulerSize;
+    rulerY.height = height;
+    rulerY.style.position = "absolute";
+    rulerY.style.top = rulerSize + "px";
+    rulerY.style.left = "0";
+    rulerY.style.background = "#eee";
+    svgContainer.appendChild(rulerY);
+
+    const ctxX = rulerX.getContext("2d");
+    const ctxY = rulerY.getContext("2d");
+
+    function drawRulerX() {
+      ctxX.clearRect(0, 0, width, rulerSize);
+      ctxX.fillStyle = "#ccc";
+      for (let i = 0; i < width; i += 10) {
+        const heightTick = i % 50 === 0 ? 15 : 7;
+        ctxX.beginPath();
+        ctxX.moveTo(i, rulerSize);
+        ctxX.lineTo(i, rulerSize - heightTick);
+        ctxX.strokeStyle = "#000";
+        ctxX.stroke();
+        if (i % 50 === 0) {
+          ctxX.fillText(i, i + 2, 10);
+        }
       }
     }
 
-    // === Layer panel ===
-
-    function updateLayerPanel(){
-      layerList.innerHTML = "";
-      [...svg.children].forEach((el,i) => {
-        const li = document.createElement("li");
-        li.textContent = `${el.tagName.toLowerCase()} ${i+1}`;
-        if(multiSelect.includes(el)) li.classList.add("selected");
-        li.onclick = () => {
-          clearSelection();
-          selectElement(el);
-        };
-        layerList.appendChild(li);
-      });
+    function drawRulerY() {
+      ctxY.clearRect(0, 0, rulerSize, height);
+      ctxY.fillStyle = "#ccc";
+      for (let i = 0; i < height; i += 10) {
+        const widthTick = i % 50 === 0 ? 15 : 7;
+        ctxY.beginPath();
+        ctxY.moveTo(rulerSize, i);
+        ctxY.lineTo(rulerSize - widthTick, i);
+        ctxY.strokeStyle = "#000";
+        ctxY.stroke();
+        if (i % 50 === 0) {
+          ctxY.fillText(i, 2, i + 10);
+        }
+      }
     }
 
-    // === Initialization ===
+    drawRulerX();
+    drawRulerY();
+  }
+  createRulers();
 
-    function init(){
-      svgCanvas = document.getElementById("svgCanvas");
-      svg = svgCanvas;
-      strokeColorInput = document.getElementById("strokeColor");
-      strokeWidthInput = document.getElementById("strokeWidth");
-      layerList = document.getElementById("layerList");
+  // Направляющие (drag & drop)
+  // Для простоты добавим 2 направляющих - горизонтальную и вертикальную
+  const guideH = document.createElement("div");
+  guideH.style.position = "absolute";
+  guideH.style.height = "1px";
+  guideH.style.background = "red";
+  guideH.style.top = "50%";
+  guideH.style.left = "0";
+  guideH.style.width = "100%";
+  guideH.style.cursor = "row-resize";
+  svgContainer.appendChild(guideH);
 
-      svgCanvas.addEventListener("mousedown", onMouseDown);
-      svgCanvas.addEventListener("mousemove", onMouseMove);
-      svgCanvas.addEventListener("mouseup", onMouseUp);
-      window.addEventListener("keydown", onKeyDown);
+  const guideV = document.createElement("div");
+  guideV.style.position = "absolute";
+  guideV.style.width = "1px";
+  guideV.style.background = "red";
+  guideV.style.left = "50%";
+  guideV.style.top = "0";
+  guideV.style.height = "100%";
+  guideV.style.cursor = "col-resize";
+  svgContainer.appendChild(guideV);
 
-      strokeColorInput.addEventListener("input", () => {
-        multiSelect.forEach(el => {
-          if(el.tagName === "path" || el.tagName === "rect" || el.tagName === "circle"){
-            el.setAttribute("stroke", strokeColorInput.value);
-          }
-        });
-      });
-      strokeWidthInput.addEventListener("input", () => {
-        multiSelect.forEach(el => {
-          if(el.tagName === "path" || el.tagName === "rect" || el.tagName === "circle"){
-            el.setAttribute("stroke-width", strokeWidthInput.value);
-          }
-        });
-      });
+  let draggingGuide = null;
 
-      updateLayerPanel();
-      pushUndo();
+  guideH.addEventListener("mousedown", (e) => {
+    draggingGuide = guideH;
+  });
+  guideV.addEventListener("mousedown", (e) => {
+    draggingGuide = guideV;
+  });
+  window.addEventListener("mouseup", (e) => {
+    draggingGuide = null;
+  });
+  window.addEventListener("mousemove", (e) => {
+    if (!draggingGuide) return;
+    const rect = svgContainer.getBoundingClientRect();
+    if (draggingGuide === guideH) {
+      let y = e.clientY - rect.top;
+      y = Math.min(Math.max(y, 0), rect.height);
+      draggingGuide.style.top = y + "px";
+    } else if (draggingGuide === guideV) {
+      let x = e.clientX - rect.left;
+      x = Math.min(Math.max(x, 0), rect.width);
+      draggingGuide.style.left = x + "px";
     }
+  });
 
-    init();
+  // Автосохранение в localStorage
+  function saveToLocal() {
+    const data = svgCanvas.outerHTML;
+    localStorage.setItem("svgDrawing", data);
+  }
+  function loadFromLocal() {
+    const data = localStorage.getItem("svgDrawing");
+    if (data) {
+      svgCanvas.innerHTML = data;
+      renderLayersFromSVG();
+      addHistory();
+    }
+  }
+  loadFromLocal();
 
-  </script>
+  // Инициализация
+  setTool("select");
+  addHistory();
+
+})();  
+</script>
 </body>
 </html>
